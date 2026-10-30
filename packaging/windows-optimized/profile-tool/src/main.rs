@@ -32,6 +32,8 @@ const GRAPHICS: &[(&str, &str)] = &[
     ("graphicsApi", "opengl"),
     ("framePacing", "efficient"),
     ("workers", "2"),
+    ("chunkUpdates", "4"),
+    ("uploadBudgetKiB", "512"),
     ("lodDistance", "0"),
     ("fxaa", "false"),
     ("taa", "false"),

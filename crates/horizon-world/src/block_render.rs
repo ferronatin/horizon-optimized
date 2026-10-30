@@ -11,6 +11,7 @@ use horizon_core::geometry::{Direction, ShapeOp, VoxelShape};
 use std::{
     collections::{BTreeMap, HashMap},
     io,
+    sync::Arc,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,8 +42,11 @@ struct State {
 /// is deduplicated by the imported immutable shape, not copied for every state.
 #[derive(Clone)]
 pub struct FaceVisibility {
-    states: Vec<State>,
-    faces: Vec<VoxelShape>,
+    // Workers share immutable definitions; only the bounded visibility cache
+    // is copied/mutated per worker. Resource reloads keep old tables alive
+    // until their last in-flight mesh has finished.
+    states: Arc<[State]>,
+    faces: Arc<[VoxelShape]>,
     cache: HashMap<(u32, u32), bool>,
 }
 impl FaceVisibility {
@@ -127,8 +131,8 @@ impl FaceVisibility {
             });
         }
         Ok(Self {
-            states,
-            faces,
+            states: states.into(),
+            faces: faces.into(),
             cache: HashMap::new(),
         })
     }
@@ -212,5 +216,67 @@ impl FaceVisibility {
         }
         self.cache.insert(key, visible);
         Ok(visible)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worker_clones_keep_geometry_alive_and_visibility_caches_independent() {
+        let state = |id, face| State {
+            block: BlockStateId(id),
+            faces: [face; 6],
+            definition: RenderDefinition {
+                skip: SkipRendering::Never,
+                can_occlude: true,
+                bars_tag: false,
+            },
+            connections: 0,
+            connection_properties: 0,
+            fluid: FluidKind::Empty,
+        };
+        let mut source = FaceVisibility {
+            states: vec![state(0, 0), state(1, 1), state(2, 2)].into(),
+            faces: vec![
+                VoxelShape::empty(),
+                VoxelShape::block(),
+                VoxelShape::block(),
+            ]
+            .into(),
+            cache: HashMap::new(),
+        };
+        let answers = |v: &mut FaceVisibility| {
+            let mut out = Vec::new();
+            for a in 0..3 {
+                for b in 0..3 {
+                    for d in Direction::ALL {
+                        out.push(
+                            v.should_render_face(BlockStateId(a), BlockStateId(b), d, true)
+                                .unwrap(),
+                        );
+                    }
+                }
+            }
+            out
+        };
+        let expected = answers(&mut source);
+        let mut first = source.clone();
+        let mut second = source.clone();
+        assert!(Arc::ptr_eq(&source.states, &first.states));
+        assert!(Arc::ptr_eq(&source.faces, &second.faces));
+        assert!(!source.cache.is_empty());
+        first.cache.clear();
+        assert_eq!(source.cache, second.cache);
+        assert_ne!(first.cache, second.cache);
+        drop(source);
+        assert_eq!(answers(&mut first), expected);
+        assert_eq!(answers(&mut second), expected);
+        assert!(
+            first
+                .should_render_face(BlockStateId(u32::MAX), BlockStateId(0), Direction::Up, true)
+                .is_err()
+        );
     }
 }

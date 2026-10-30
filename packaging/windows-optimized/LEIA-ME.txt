@@ -9,7 +9,9 @@ HORIZON OPTIMIZED — WINDOWS X64
 
 MODO INTEL HD / PC ANTIGO
 O instalador aplica um perfil de 960x540, 6 chunks, dois workers, OpenGL, menu a
-30 FPS e sem blur. O limite durante o jogo é 60 FPS. Isso reduz qualidade e
+30 FPS e sem blur. O limite durante o jogo é 60 FPS. Os envios de terreno para a GPU usam lotes
+menores para suavizar picos; durante exploração intensa os chunks podem aparecer
+gradualmente. Isso reduz qualidade e
 distância iniciais; não remove sistemas do jogo. A janela leve tem botões para
 reaplicar esse perfil, restaurar o backup original ou abrir o launcher completo
 para administrar contas, mods, instâncias e outras funções. Suas teclas, contas
