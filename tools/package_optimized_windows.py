@@ -102,6 +102,12 @@ def package(args):
         shutil.copy2(args.engine_dir / name, version / name)
     # Completion is written by the installer only after all extraction succeeds.
     (version / '.installed').unlink(missing_ok=True)
+    # Original Horizon-format packs only; no Minecraft textures or external shader code.
+    for source, name in [('optimized_light', 'Horizon-Luz-Rapida'),
+                         ('optimized_glow', 'Horizon-Leve-Bonito'),
+                         ('golden_hour', 'Golden-Hour')]:
+        shutil.copytree(ROOT / 'crates/horizon-shader-api/packs' / source,
+                        payload / 'data/game/shaderpacks' / name)
     runtime = payload / 'runtime'
     runtime.mkdir()
     launcher = work / 'official-launcher' / 'horizon-launcher.exe'

@@ -17,7 +17,8 @@ are untouched. Build it separately with its Cargo manifest under `profile-tool/`
 for Windows x64 and place `horizon-light-profile.exe` beside the engine/CLI.
 
 Default legacy settings are explicit/reversible: OpenGL, 960x540, 6 render chunks,
-5 simulation chunks, 2 workers, no blur/shaders/HDR, static panorama and 60 FPS
+5 simulation chunks, 2 workers, no blur/HDR, fast clouds, mipmaps level 2,
+Horizon Luz Rápida shader, static panorama and 60 FPS
 in play. The loading/title loop now yields using event-loop deadlines rather
 than continuously polling, caps foreground menus at 60 by default, and accepts
 `HORIZON_MENU_FPS=30` from the light front door. Offscreen scripted rendering
@@ -42,6 +43,14 @@ folder survives uninstall. Ordinary OS credentials remain in the Windows vault.
 Automatic game installs are off in the initial settings, and the front door
 turns off launcher self-replacement so upstream updates do not silently replace
 this edition. Manual upstream versions remain available in the official launcher.
+
+The installer bundles three original Horizon-format shader presets. Luz Rápida
+grades terrain in its existing material pass with a warm sky and no post pass;
+Leve Bonito adds a four-tap glow and grade in one post pass without intermediate
+post targets; Golden Hour retains the original two-pass, twelve-tap effect.
+The profile selects Luz Rápida; players can select or disable packs in game.
+These presets do not add dynamic shadows, reflections, SSAO or volumetrics.
+See [the validation report](../../docs/performance/gl-shaders-lite.md).
 
 ## Rebuild
 

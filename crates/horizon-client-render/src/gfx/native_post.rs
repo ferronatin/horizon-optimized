@@ -635,3 +635,5 @@ struct Output { @location(0) color: vec4<f32>, @builtin(frag_depth) depth: f32 }
     }
 }
 
+#[cfg(test)]
+mod optimized_tests;

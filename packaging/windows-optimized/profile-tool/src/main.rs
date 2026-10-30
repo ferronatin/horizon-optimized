@@ -23,9 +23,9 @@ const OPTIONS: &[(&str, &str)] = &[
     ("entityShadows", "false"),
     ("entityDistanceScaling", "0.5"),
     ("biomeBlendRadius", "0"),
-    ("mipmapLevels", "0"),
+    ("mipmapLevels", "2"),
     ("particles", "2"),
-    ("renderClouds", "false"),
+    ("renderClouds", "fast"),
     ("cutoutLeaves", "false"),
 ];
 const GRAPHICS: &[(&str, &str)] = &[
@@ -40,7 +40,7 @@ const GRAPHICS: &[(&str, &str)] = &[
     ("hdr", "false"),
     ("resolutionScale", "100"),
     ("upscaling", "native"),
-    ("pickedShaderPack", ""),
+    ("pickedShaderPack", "Horizon-Luz-Rapida"),
 ];
 
 fn merge(text: &str, changes: &[(&str, &str)]) -> String {

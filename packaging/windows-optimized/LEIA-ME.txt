@@ -11,15 +11,25 @@ MODO INTEL HD / PC ANTIGO
 O instalador aplica um perfil de 960x540, 6 chunks, dois workers, OpenGL, menu a
 30 FPS e sem blur. O limite durante o jogo é 60 FPS. Os envios de terreno para a GPU usam lotes
 menores para suavizar picos; durante exploração intensa os chunks podem aparecer
-gradualmente. Isso reduz qualidade e
-distância iniciais; não remove sistemas do jogo. A janela leve tem botões para
+gradualmente. O perfil usa nuvens rápidas e mipmaps nível 2 para reduzir a
+cintilação à distância; não remove sistemas do jogo. A janela leve tem botões para
 reaplicar esse perfil, restaurar o backup original ou abrir o launcher completo
 para administrar contas, mods, instâncias e outras funções. Suas teclas, contas
 e mundos são preservados. O backup fica em data\before-light-profile.
 
 O launcher oficial está incluído sem modificações, com sua autenticação original.
-O jogo incluído foi compilado do fork ferronatin/horizon-optimized com as duas
-otimizações de paletas. BUILD-INFO.json identifica as versões e os hashes.
+O jogo incluído foi compilado do fork ferronatin/horizon-optimized com
+otimizações de paletas, montagem de chunks e compatibilidade de shaders OpenGL. BUILD-INFO.json identifica as versões e os hashes.
+
+SHADERS INCLUÍDOS
+Horizon Luz Rápida é ativado pelo perfil: céu quente e cores do terreno nas
+passagens existentes, sem pós-processamento. Para brilho, selecione Horizon
+Leve Bonito no menu de shaders do jogo: brilho e cores em uma passagem, com
+quatro amostras para o brilho. Golden Hour também está incluído, com duas
+passagens e brilho mais detalhado, mas exige mais da GPU. Todos podem ser
+desativados ou ajustados no jogo. Reaplicar o perfil volta para Luz Rápida.
+Não foram adicionadas sombras dinâmicas, reflexos ou luz volumétrica.
+FPS e qualidade visual ainda precisam ser avaliados na sua máquina.
 
 PASTAS NO DISCO ESCOLHIDO
   data\launcher — versões, downloads do Minecraft, Java e cache do launcher

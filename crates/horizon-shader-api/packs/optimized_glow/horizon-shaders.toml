@@ -1,0 +1,52 @@
+schema = 1
+id = "optimized_glow"
+name = "Horizon Leve Bonito"
+version = "1.0.0"
+api = "0.1"
+description = "Céu quente, brilho suave e cores equilibradas em uma passagem leve."
+authors = ["Horizon Optimized"]
+license = "MIT"
+
+[sky]
+file = "sky.wgsl"
+name = "Céu quente"
+
+[[post]]
+file = "post.wgsl"
+name = "Brilho e cores (leve)"
+
+[[options]]
+id = "glow"
+name = "Brilho suave"
+type = "float"
+default = 0.3
+min = 0.0
+max = 1.0
+step = 0.05
+
+[[options]]
+id = "warmth"
+name = "Luz quente"
+type = "float"
+default = 0.4
+min = 0.0
+max = 1.0
+step = 0.05
+
+[[options]]
+id = "saturation"
+name = "Saturação"
+type = "float"
+default = 1.1
+min = 0.0
+max = 2.0
+step = 0.05
+
+[[options]]
+id = "vignette"
+name = "Vinheta suave"
+type = "bool"
+default = true
+
+[budget]
+gpu_ms = 1.0
