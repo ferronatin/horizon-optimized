@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "0a341cc353dbd2325337efc96758d102ba9a4b5d",
+  "cpu": "AMD EPYC 9V74 (shared VM)",
+  "platform": "Linux x86_64",
+  "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+  "profile": "release; thin LTO; codegen-units=1",
+  "rounds": 25,
+  "warmup_rounds": 1,
+  "calls_per_round": 2000,
+  "statistic": "upper median of 24 measured rounds; alternating baseline/optimized order",
+  "limitations": [
+    "shared VM; no core or clock pinning",
+    "microbenchmarks on synthetic fixtures; no in-game FPS measurement"
+  ],
+  "samples": [
+    {
+      "case": "pack_words/64/1",
+      "baseline_us": 0.098,
+      "optimized_us": 0.057,
+      "speedup": 1.711
+    },
+    {
+      "case": "pack_words/64/2",
+      "baseline_us": 0.107,
+      "optimized_us": 0.058,
+      "speedup": 1.836
+    },
+    {
+      "case": "pack_words/64/3",
+      "baseline_us": 0.128,
+      "optimized_us": 0.059,
+      "speedup": 2.167
+    },
+    {
+      "case": "pack_words/64/7",
+      "baseline_us": 0.11,
+      "optimized_us": 0.061,
+      "speedup": 1.797
+    },
+    {
+      "case": "pack_words/4096/4",
+      "baseline_us": 8.079,
+      "optimized_us": 3.236,
+      "speedup": 2.497
+    },
+    {
+      "case": "pack_words/4096/5",
+      "baseline_us": 6.144,
+      "optimized_us": 3.219,
+      "speedup": 1.909
+    },
+    {
+      "case": "pack_words/4096/6",
+      "baseline_us": 5.573,
+      "optimized_us": 3.229,
+      "speedup": 1.726
+    },
+    {
+      "case": "pack_words/4096/7",
+      "baseline_us": 6.212,
+      "optimized_us": 3.957,
+      "speedup": 1.57
+    },
+    {
+      "case": "pack_words/4096/8",
+      "baseline_us": 5.657,
+      "optimized_us": 3.398,
+      "speedup": 1.665
+    },
+    {
+      "case": "pack_words/4096/12",
+      "baseline_us": 5.298,
+      "optimized_us": 3.639,
+      "speedup": 1.456
+    },
+    {
+      "case": "pack_words/4096/16",
+      "baseline_us": 5.43,
+      "optimized_us": 3.943,
+      "speedup": 1.377
+    },
+    {
+      "case": "section_pack/terrain",
+      "baseline_us": 15.346,
+      "optimized_us": 10.875,
+      "speedup": 1.411
+    },
+    {
+      "case": "section_pack/surface",
+      "baseline_us": 16.839,
+      "optimized_us": 13.985,
+      "speedup": 1.204
+    },
+    {
+      "case": "section_pack/global",
+      "baseline_us": 16.887,
+      "optimized_us": 15.586,
+      "speedup": 1.083
+    },
+    {
+      "case": "section_pack/large ids",
+      "baseline_us": 60.622,
+      "optimized_us": 57.32,
+      "speedup": 1.058
+    },
+    {
+      "case": "section_pack/biomes",
+      "baseline_us": 0.331,
+      "optimized_us": 0.273,
+      "speedup": 1.21
+    },
+    {
+      "case": "section_pack/single",
+      "baseline_us": 4.438,
+      "optimized_us": 4.329,
+      "speedup": 1.025
+    },
+    {
+      "case": "section_pack/seventeen",
+      "baseline_us": 17.02,
+      "optimized_us": 14.104,
+      "speedup": 1.207
+    }
+  ]
+}
