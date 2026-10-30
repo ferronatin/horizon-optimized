@@ -379,6 +379,8 @@ impl super::Device {
                 crate::PipelineError::Linkage(map_naga_stage(naga_stage), msg)
             })?;
 
+            super::depth_sampling::fix_raw_depth_lod(&mut output, &module, &reflection_info);
+
             log::debug!("Naga generated shader:\n{output}");
 
             context.consume_reflection(

@@ -122,11 +122,11 @@ fn texture_entry(binding: u32, sample_type: wgpu::TextureSampleType) -> wgpu::Bi
     }
 }
 
-fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+fn sampler_entry(binding: u32, kind: wgpu::SamplerBindingType) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        ty: wgpu::BindingType::Sampler(kind),
         count: None,
     }
 }
@@ -149,8 +149,8 @@ impl NativePost {
                 texture_entry(1, float),
                 texture_entry(2, wgpu::TextureSampleType::Depth),
                 texture_entry(3, float),
-                sampler_entry(4),
-                sampler_entry(5),
+                sampler_entry(4, wgpu::SamplerBindingType::Filtering),
+                sampler_entry(5, wgpu::SamplerBindingType::NonFiltering),
             ],
         });
         let mut groups: [Option<&wgpu::BindGroupLayout>; GROUP as usize + 1] = Default::default();
@@ -165,6 +165,7 @@ impl NativePost {
         for (i, stage) in stages.into_iter().enumerate() {
             let present = present_constants(&stage.module, constants);
             let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
             let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(&stage.label),
                 source: wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(stage.module)),
@@ -198,7 +199,8 @@ impl NativePost {
                 multiview_mask: None,
                 cache: None,
             });
-            if let Some(e) = pollster::block_on(scope.pop()) {
+            if let Some(e) = pollster::block_on(internal.pop()).or(pollster::block_on(scope.pop()))
+            {
                 return Err(format!("{}: {e}", stage.file));
             }
             passes.push((stage.label, pipeline));
@@ -455,6 +457,13 @@ mod tests {
     /// must keep it) times an option, the second halves it and writes the depth as alpha.
     #[test]
     fn passes_chain_through_half_float_targets_with_options_and_depth() {
+        check_depth_pixels(false);
+    }
+    #[test]
+    fn nearest_depth_sampling_clamps_edges_without_interpolating() {
+        check_depth_pixels(true);
+    }
+    fn check_depth_pixels(clamped: bool) {
         let Some((device, queue)) = device() else {
             return;
         };
@@ -462,8 +471,15 @@ mod tests {
             [[post]]\nfile = \"a.wgsl\"\n[[post]]\nfile = \"b.wgsl\"\n\
             [[options]]\nid = \"gain\"\nname = \"Gain\"\ntype = \"float\"\ndefault = 0.0\nmin = 0.0\nmax = 2.0\n";
         let a = "override gain: f32;\nfn post(input: PostInput) -> vec4<f32> { return vec4<f32>(input.color.rgb * 2.0 * gain, 1.0); }\n";
-        let b = "fn post(input: PostInput) -> vec4<f32> { return vec4<f32>(input.color.rgb * 0.5, input.depth); }\n";
-        let files = [(MANIFEST, manifest), ("a.wgsl", a), ("b.wgsl", b)]
+        let alpha = if clamped {
+            "depth_at(input.uv * 2.0 - 0.5)"
+        } else {
+            "input.depth"
+        };
+        let b = format!(
+            "fn post(input: PostInput) -> vec4<f32> {{ return vec4<f32>(input.color.rgb * 0.5, {alpha}); }}\n"
+        );
+        let files = [(MANIFEST, manifest), ("a.wgsl", a), ("b.wgsl", b.as_str())]
             .map(|(n, t)| (n.to_owned(), t.as_bytes().to_vec()))
             .into();
         let report = check(&Pack::from_files(files).unwrap()).unwrap();
@@ -493,8 +509,54 @@ mod tests {
             format,
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
         );
+        let gradient = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Depth gradient fixture"),
+            source: wgpu::ShaderSource::Wgsl(
+                r#"
+@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+    let p = vec2<f32>(f32((i << 1u) & 2u), f32(i & 2u));
+    return vec4<f32>(p * 2.0 - 1.0, 0.0, 1.0);
+}
+struct Output { @location(0) color: vec4<f32>, @builtin(frag_depth) depth: f32 }
+@fragment fn fs(@builtin(position) p: vec4<f32>) -> Output {
+    return Output(vec4<f32>(0.8, 0.4, 0.2, 1.0), (floor(p.y) * 4.0 + floor(p.x)) / 15.0);
+}"#
+                .into(),
+            ),
+        });
+        let gradient_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: None,
+            vertex: wgpu::VertexState {
+                module: &gradient,
+                entry_point: Some("vs"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &gradient,
+                entry_point: Some("fs"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            primitive: Default::default(),
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
         let mut encoder = device.create_command_encoder(&Default::default());
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut draw = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &color,
@@ -520,6 +582,9 @@ mod tests {
             }),
             ..Default::default()
         });
+        draw.set_pipeline(&gradient_pipeline);
+        draw.draw(0..3, 0..1);
+        drop(draw);
         let view = screen.create_view(&Default::default());
         post.run(&device, &mut encoder, (&color, &depth), &view, [4, 4], None);
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -545,11 +610,28 @@ mod tests {
             .slice(..)
             .map_async(wgpu::MapMode::Read, |r| r.unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-        let pixel = buffer.slice(..).get_mapped_range().unwrap()[..4].to_vec();
+        let data = buffer.slice(..).get_mapped_range().unwrap();
         let near = |got: u8, want: u8| got.abs_diff(want) <= 1;
-        assert!(
-            near(pixel[0], 204) && near(pixel[1], 102) && near(pixel[2], 51) && near(pixel[3], 128),
-            "{pixel:?}"
-        );
+        for y in 0..4 {
+            for x in 0..4 {
+                let at = y * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize + x * 4;
+                let pixel = &data[at..at + 4];
+                let coords = [0, 1, 3, 3];
+                let (dx, dy) = if clamped {
+                    (coords[x], coords[y])
+                } else {
+                    (x, y)
+                };
+                let depth = (17 * (dy * 4 + dx)) as u8;
+                assert!(
+                    near(pixel[0], 204)
+                        && near(pixel[1], 102)
+                        && near(pixel[2], 51)
+                        && near(pixel[3], depth),
+                    "({x},{y}): {pixel:?}, expected alpha {depth}"
+                );
+            }
+        }
     }
 }
+

@@ -52,7 +52,8 @@ large_enum_variant = "allow"
 # UHD 620/630) crashes on it with an access violation (#746). It also fixes the
 # Metal backend's lookup of the CoreGraphics HDR colour space names, which handed
 # CoreGraphics a symbol's address as the string and crashed HDR output on macOS.
-# Drop this and the folder once a wgpu release has both fixes.
+# The GLES bridge also fixes Naga 30's regular depth LOD sampling declarations.
+# Drop this and the folder once a wgpu release contains these fixes.
 [patch.crates-io]
 wgpu-hal = { path = "third_party/wgpu-hal" }
 

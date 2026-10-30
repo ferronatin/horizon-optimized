@@ -41,9 +41,7 @@ struct TaaUniform {
     jitter: [f32; 4],
 }
 
-/// TAA's GPU resources, absent when the device cannot compile the shader
-/// (the OpenGL backend's naga GLSL emitter does not support `textureLoad`
-/// from depth textures).
+/// TAA's GPU resources, absent when the device cannot compile the shader.
 struct TaaResources {
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
@@ -53,6 +51,7 @@ struct TaaResources {
 pub struct Post {
     layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
+    depth_sampler: wgpu::Sampler,
     copy: wgpu::RenderPipeline,
     fxaa: wgpu::RenderPipeline,
     format: wgpu::TextureFormat,
@@ -144,9 +143,8 @@ impl Post {
                 cache: None,
             })
         };
-        // The OpenGL backend's GLSL translator does not support textureLoad
-        // from depth textures: on devices running through OpenGL (such as older
-        // Intel GPUs on Linux), TAA cannot compile its pipeline.
+        // Depth is sampled at texel centres with a nearest sampler, including
+        // on OpenGL. Keep the graceful fallback for other driver limitations.
         let taa_resources = {
             let taa_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Horizon TAA bindings"),
@@ -160,6 +158,12 @@ impl Post {
                     },
                     texture(2, float),
                     texture(3, wgpu::TextureSampleType::Depth),
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
                     wgpu::BindGroupLayoutEntry {
                         binding: 4,
                         visibility: wgpu::ShaderStages::FRAGMENT,
@@ -237,6 +241,10 @@ impl Post {
             fxaa: pipeline("fs_fxaa", &pipeline_layout, format),
             layout,
             sampler,
+            depth_sampler: device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("Horizon nearest depth"),
+                ..Default::default()
+            }),
             format,
             scale: 1.0,
             antialias: false,
@@ -378,6 +386,10 @@ impl Post {
                             wgpu::BindGroupEntry {
                                 binding: 4,
                                 resource: res.uniform.as_entire_binding(),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 5,
+                                resource: wgpu::BindingResource::Sampler(&self.depth_sampler),
                             },
                         ],
                     })
@@ -560,5 +572,24 @@ mod tests {
         let post = Post::new(&device, wgpu::TextureFormat::Rgba8Unorm);
         // Copy and FXAA pipelines always compile; TAA compiles if supported by backend.
         let _ = post.supports_taa();
+    }
+    #[test]
+    fn gl_taa_compiles_and_prepares_its_nearest_depth_binding() {
+        let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
+        descriptor.backends = wgpu::Backends::GL;
+        let instance = wgpu::Instance::new(descriptor);
+        let Ok(adapter) = pollster::block_on(instance.request_adapter(&Default::default())) else {
+            return;
+        };
+        let (device, _) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
+        let mut post = Post::new(&device, wgpu::TextureFormat::Rgba8Unorm);
+        assert!(
+            post.supports_taa(),
+            "raw depth sampling must compile on this GL adapter"
+        );
+        post.taa = true;
+        let _ = post.jitter([4, 4], true, Mat4::IDENTITY, DVec3::ZERO);
+        assert!(post.prepare(&device, [4, 4], true).is_some());
+        assert!(post.target.as_ref().unwrap().taa.is_some());
     }
 }

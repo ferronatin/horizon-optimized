@@ -127,6 +127,7 @@ impl NativeSky {
         let (module, layout) = build(device, globals, frame, stage)?;
         let present = present_constants(&module, constants);
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&stage.label),
             source: wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(module)),
@@ -139,7 +140,7 @@ impl NativeSky {
             &present,
             format,
         );
-        if let Some(e) = pollster::block_on(scope.pop()) {
+        if let Some(e) = pollster::block_on(internal.pop()).or(pollster::block_on(scope.pop())) {
             return Err(format!("{}: {e}", stage.file));
         }
         Ok(Self {
