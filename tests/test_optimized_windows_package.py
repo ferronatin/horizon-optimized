@@ -65,6 +65,22 @@ class WindowsPackageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'signature'):
                 verify_archive(root / 'archive', root / 'sums', root / 'signature', 'nightly', 'asset.zip')
 
+    def test_rejects_old_one_megabyte_client_stack(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / 'client.exe'
+            header = bytearray(256)
+            header[:2] = b'MZ'
+            struct.pack_into('<I', header, 0x3c, 64)
+            header[64:70] = b'PE\0\0\x64\x86'
+            struct.pack_into('<H', header, 64 + 24, 0x20b)
+            struct.pack_into('<Q', header, 64 + 24 + 72, 1024 * 1024)
+            file.write_bytes(header)
+            with self.assertRaisesRegex(ValueError, 'stack reserve'):
+                require_windows_x64(file, min_stack=16 * 1024 * 1024)
+            struct.pack_into('<Q', header, 64 + 24 + 72, 16 * 1024 * 1024)
+            file.write_bytes(header)
+            require_windows_x64(file, min_stack=16 * 1024 * 1024)
+
 
 if __name__ == '__main__':
     unittest.main()
