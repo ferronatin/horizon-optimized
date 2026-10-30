@@ -392,6 +392,11 @@ impl Game<'_> {
             return;
         }
         let limit = self.framerate_limit();
+        let limit = if self.title.is_some() {
+            super::startup_menu::menu_fps_override().map_or(limit, |n| limit.min(n as i32))
+        } else {
+            limit
+        };
         match self.settings.horizon.pacing {
             horizon_client::graphics::Pacing::Precise => {
                 horizon_client::window::end_frame(&mut self.limiter, limit, &mut self.frame_clock)

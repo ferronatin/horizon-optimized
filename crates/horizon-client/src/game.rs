@@ -15927,6 +15927,7 @@ fn run_event_loop(mut game: Game<'_>) -> Result<()> {
 
 /// The loading screen's state while the worker loads the resources.
 struct Loading {
+    next_redraw: Instant,
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
     gui: Option<UiResources>,
@@ -16058,16 +16059,34 @@ impl Loading {
             event_loop.exit();
             return;
         }
-        if let Some(w) = &self.window {
-            if self.options.as_ref().is_some_and(|o| o.offscreen) {
-                self.draw();
-            } else {
+        if self.options.as_ref().is_some_and(|o| o.offscreen) {
+            self.draw();
+            event_loop.set_control_flow(ControlFlow::Poll);
+            return;
+        }
+        let now = Instant::now();
+        if now >= self.next_redraw {
+            self.next_redraw = now + self.menu_interval();
+            if let Some(w) = &self.window {
                 w.request_redraw();
             }
         }
-        event_loop.set_control_flow(ControlFlow::Poll);
+        // Input still wakes the loop immediately; resource polling and drawing
+        // no longer spin an entire CPU core while the menu is idle.
+        event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_redraw));
+    }
+    fn menu_interval(&self) -> Duration {
+        startup_menu::menu_interval(
+            self.settings.max_fps,
+            startup_menu::menu_fps_override(),
+            self.window.as_ref().is_none_or(|w| w.has_focus()),
+            self.window
+                .as_ref()
+                .is_some_and(|w| w.is_minimized().unwrap_or(false)),
+        )
     }
     fn draw(&mut self) {
+        self.next_redraw = Instant::now() + self.menu_interval();
         let Some(size) = self
             .renderer
             .as_ref()
@@ -16279,6 +16298,7 @@ fn run_loading(
         startup_menu::spawn_loader(&options, &settings, &vanilla_root, started, &progress)?;
     let menu = startup_menu::StartupMenu::new(&options, pack_error.as_deref())?;
     let loading = Loading {
+        next_redraw: Instant::now(),
         window: None,
         renderer: None,
         gui: None,
