@@ -1,5 +1,13 @@
 # Windows installer with a disk selector
 
+The Windows MSVC client now reserves 16 MiB for its main-thread stack, retaining
+the 4 KiB initial commit. The previous executable used the linker's 1 MiB
+default; a Windows 10 / Intel HD 2500 report hit `0xc00000fd` while recreating
+the loading renderer. The packager rejects clients with the old small reserve.
+This changes no launcher UI or game settings. Native validation of that report
+still requires the affected machine; the optional OpenGL TAA warning has its
+own fallback and is not a fatal error in the supplied log.
+
 The legacy edition now opens native NSIS controls, not GPUI. Sign-in and play
 invoke the unmodified official launcher's CLI in a visible console. The full
 launcher remains available through a button and `Horizon-Completo.exe`.

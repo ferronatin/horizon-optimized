@@ -62,7 +62,7 @@ def extract_archive(archive, destination):
         zipped.extractall(destination)
 
 
-def require_windows_x64(path):
+def require_windows_x64(path, min_stack=0):
     with Path(path).open('rb') as file:
         if file.read(2) != b'MZ':
             raise ValueError(f'{path} is not an executable')
@@ -71,13 +71,22 @@ def require_windows_x64(path):
         file.seek(offset)
         if file.read(4) != b'PE\0\0' or file.read(2) != b'\x64\x86':
             raise ValueError(f'{path} is not a Windows x64 PE executable')
+        if min_stack:
+            file.seek(offset + 24)
+            if file.read(2) != b'\x0b\x02':
+                raise ValueError(f'{path} does not have a PE32+ optional header')
+            file.seek(offset + 24 + 72)
+            reserve, = struct.unpack('<Q', file.read(8))
+            if reserve < min_stack:
+                raise ValueError(f'{path} main-thread stack reserve is too small ({reserve} bytes)')
 
 
 def package(args):
     verify_archive(args.game, args.game_sums, args.game_signature, 'nightly', 'horizon-windows-x64.zip')
     verify_archive(args.launcher, args.launcher_sums, args.launcher_signature, LAUNCHER_TAG, 'horizon-launcher-windows-x64.zip')
     for binary in ['horizon-client.exe', 'horizon-ctl.exe', 'horizon-light-profile.exe']:
-        require_windows_x64(args.engine_dir / binary)
+        require_windows_x64(args.engine_dir / binary,
+                            min_stack=16 * 1024 * 1024 if binary == 'horizon-client.exe' else 0)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     work = out / 'build'
