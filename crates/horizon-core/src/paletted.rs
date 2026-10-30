@@ -207,10 +207,21 @@ fn palette_ids(values: &[u32]) -> (Vec<u32>, Vec<u32>) {
     (palette, ids)
 }
 /// Words holding `ids` in `bits`-wide slots.
-fn pack_words(bits: u8, entries: usize, ids: impl Iterator<Item = u32>) -> Vec<u64> {
-    let mut words = vec![0u64; storage_len(bits, entries)];
-    for (i, id) in ids.enumerate() {
-        write(&mut words, bits, i, id);
+fn pack_words(bits: u8, entries: usize, mut ids: impl Iterator<Item = u32>) -> Vec<u64> {
+    let per = 64 / usize::from(bits);
+    let m = mask(bits);
+    let mut words = Vec::with_capacity(storage_len(bits, entries));
+    // Build each padded word in a register. Repeated single-cell writes locate
+    // the word and read/modify/write it for every id, although packing visits
+    // every cell exactly once. Callers supply exactly `entries` ids. Keep the
+    // old writer's masking even for out-of-range ids from public constructors.
+    for start in (0..entries).step_by(per) {
+        let mut word = 0;
+        for (slot, id) in ids.by_ref().take(per.min(entries - start)).enumerate() {
+            let shift = slot * usize::from(bits);
+            word = (word & !(m << shift)) | (u64::from(id) << shift);
+        }
+        words.push(word);
     }
     words
 }
@@ -693,6 +704,140 @@ mod tests {
     use super::*;
     const BLOCKS: Strategy = Strategy::blocks(16);
     const BIOMES: Strategy = Strategy::biomes(7);
+
+    // The original per-cell writer is also an independent reference for the
+    // word layout, including padding and the partial final word.
+    fn baseline_pack_words(bits: u8, entries: usize, ids: impl Iterator<Item = u32>) -> Vec<u64> {
+        let mut words = vec![0u64; storage_len(bits, entries)];
+        for (i, id) in ids.enumerate() {
+            write(&mut words, bits, i, id);
+        }
+        words
+    }
+
+    #[test]
+    fn bulk_packing_matches_cell_writes_at_every_width() {
+        let mut state = 0x1234_5678_9ABC_DEF1;
+        for bits in 1..=32 {
+            let per = 64 / usize::from(bits);
+            for entries in [0, 1, per - 1, per, per + 1, 63, 64, 65, 4095, 4096] {
+                for pattern in 0..6 {
+                    let ids: Vec<u32> = (0..entries)
+                        .map(|i| match pattern {
+                            0 => 0,
+                            1 => mask(bits) as u32,
+                            2 => (i as u64 & mask(bits)) as u32,
+                            3 => (rng(&mut state) & mask(bits)) as u32,
+                            4 => u32::MAX,
+                            _ => rng(&mut state) as u32,
+                        })
+                        .collect();
+                    let words = pack_words(bits, entries, ids.iter().copied());
+                    assert_eq!(
+                        words,
+                        baseline_pack_words(bits, entries, ids.iter().copied()),
+                        "{bits} bits, {entries} entries, pattern {pattern}"
+                    );
+                    for (i, &id) in ids.iter().enumerate() {
+                        assert_eq!(read(&words, bits, i), (u64::from(id) & mask(bits)) as u32);
+                    }
+                    for (word, start) in words.iter().zip((0..entries).step_by(per)) {
+                        let used = per.min(entries - start) * usize::from(bits);
+                        if used < 64 && pattern < 4 {
+                            assert_eq!(word >> used, 0, "padding must stay zero");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "microbenchmark; run with --ignored --nocapture"]
+    fn benchmark_bulk_packing() {
+        use std::{hint::black_box, time::Instant};
+        fn measure<T>(
+            name: &str,
+            mut baseline: impl FnMut() -> T,
+            mut optimized: impl FnMut() -> T,
+        ) {
+            let mut times = [Vec::new(), Vec::new()];
+            for round in 0..25 {
+                for fast in [round % 2 == 0, round % 2 != 0] {
+                    let started = Instant::now();
+                    for _ in 0..2000 {
+                        black_box(if fast { optimized() } else { baseline() });
+                    }
+                    if round != 0 {
+                        times[usize::from(fast)]
+                            .push(started.elapsed().as_secs_f64() * 1e6 / 2000.0);
+                    }
+                }
+            }
+            for samples in &mut times {
+                samples.sort_by(f64::total_cmp);
+            }
+            let (before, after) = (times[0][12], times[1][12]);
+            println!(
+                "{name}: baseline {before:.3} us, optimized {after:.3} us, {:.3}x",
+                before / after
+            );
+        }
+        for (entries, widths) in [
+            (64, &[1, 2, 3, 7][..]),
+            (4096, &[4, 5, 6, 7, 8, 12, 16][..]),
+        ] {
+            for &bits in widths {
+                let ids: Vec<u32> = (0..entries)
+                    .map(|i| ((i as u64 * 17) & mask(bits)) as u32)
+                    .collect();
+                assert_eq!(
+                    pack_words(bits, entries, ids.iter().copied()),
+                    baseline_pack_words(bits, entries, ids.iter().copied())
+                );
+                measure(
+                    &format!("pack_words/{entries}/{bits}"),
+                    || {
+                        baseline_pack_words(
+                            black_box(bits),
+                            entries,
+                            black_box(&ids).iter().copied(),
+                        )
+                    },
+                    || pack_words(black_box(bits), entries, black_box(&ids).iter().copied()),
+                );
+            }
+        }
+        // Include unpacking and palette construction, not just the changed
+        // kernel, to measure its share of saving a whole section.
+        fn baseline_pack(c: &PalettedContainer) -> Packed {
+            let entries = c.strategy.entries();
+            let mut values = vec![0; entries];
+            c.unpack(&mut values);
+            let (palette, ids) = palette_ids(&values);
+            let bits = match c.strategy.config(ceil_log2(palette.len())) {
+                Config::Single => 0,
+                Config::List(bits) => bits,
+                Config::Global => ceil_log2(palette.len()),
+            };
+            let data = (bits != 0).then(|| baseline_pack_words(bits, entries, ids.iter().copied()));
+            Packed {
+                palette,
+                bits,
+                data,
+            }
+        }
+        for (name, values) in palette_cases() {
+            let strategy = if values.len() == 64 { BIOMES } else { BLOCKS };
+            let c = PalettedContainer::from_values(strategy, &values);
+            assert_eq!(c.pack(), baseline_pack(&c));
+            measure(
+                &format!("section_pack/{name}"),
+                || baseline_pack(black_box(&c)),
+                || black_box(&c).pack(),
+            );
+        }
+    }
 
     #[test]
     fn locate_matches_division_for_every_width() {
