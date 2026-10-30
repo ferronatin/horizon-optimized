@@ -7,6 +7,37 @@ use horizon_client::{
 };
 use winit::{event::KeyEvent, keyboard::ModifiersState};
 
+pub(super) fn menu_fps_override() -> Option<u32> {
+    static LIMIT: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| {
+        std::env::var("HORIZON_MENU_FPS")
+            .ok()?
+            .parse()
+            .ok()
+            .filter(|n| (10..=60).contains(n))
+    })
+}
+
+pub(super) fn menu_interval(
+    max_fps: u32,
+    requested: Option<u32>,
+    focused: bool,
+    minimized: bool,
+) -> Duration {
+    let limit = if minimized {
+        10
+    } else if !focused {
+        30
+    } else {
+        60
+    };
+    let fps = max_fps
+        .clamp(1, 60)
+        .min(requested.unwrap_or(60).clamp(1, 60))
+        .min(limit);
+    Duration::from_secs_f64(1.0 / f64::from(fps))
+}
+
 #[derive(Default)]
 pub(super) struct StartupMenu {
     title: Option<Title>,
@@ -733,6 +764,18 @@ impl Loading {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn menu_deadlines_respect_caps_and_release_cpu_when_inactive() {
+        use super::menu_interval;
+        use std::time::Duration;
+        let period = |fps| Duration::from_secs_f64(1.0 / f64::from(fps));
+        assert_eq!(menu_interval(260, None, true, false), period(60));
+        assert_eq!(menu_interval(120, Some(30), true, false), period(30));
+        assert_eq!(menu_interval(20, Some(30), true, false), period(20));
+        assert_eq!(menu_interval(120, None, false, false), period(30));
+        assert_eq!(menu_interval(120, Some(30), true, true), period(10));
+        assert!(menu_interval(0, None, true, false) > Duration::ZERO);
+    }
     use super::*;
 
     fn gui(root: &std::path::Path) -> UiResources {
@@ -747,6 +790,7 @@ mod tests {
 
     fn loading(receiver: Receiver<LoaderMsg>) -> Loading {
         Loading {
+            next_redraw: Instant::now(),
             window: None,
             renderer: None,
             gui: None,
