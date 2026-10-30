@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "e2d7b0bdf0bf975b1528acb272c956918c80c8c4",
+  "cpu": "AMD EPYC 9V74 (shared VM)",
+  "platform": "Linux x86_64",
+  "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+  "profile": "release; thin LTO; codegen-units=1",
+  "rounds": 25,
+  "warmup_rounds": 1,
+  "calls_per_round": 1000,
+  "statistic": "upper median of 24 measured rounds; alternating order",
+  "includes": [
+    "same source clone",
+    "resize",
+    "drop"
+  ],
+  "patterns": {
+    "0": "reverse cyclic ids",
+    "1": "deterministic pseudorandom ids",
+    "2": "runs of 128 equal ids",
+    "3": "up to three live ids; other palette entries unused"
+  },
+  "limitations": [
+    "shared VM, no core/clock pinning",
+    "synthetic palette growth, no full-game FPS measurement"
+  ],
+  "samples": [
+    {"entries": 4096, "bits": 4, "pattern": 0, "baseline_us": 29.992, "optimized_us": 14.567, "speedup": 2.059},
+    {"entries": 4096, "bits": 4, "pattern": 1, "baseline_us": 30.095, "optimized_us": 14.165, "speedup": 2.125},
+    {"entries": 4096, "bits": 4, "pattern": 2, "baseline_us": 12.385, "optimized_us": 10.998, "speedup": 1.126},
+    {"entries": 4096, "bits": 4, "pattern": 3, "baseline_us": 19.661, "optimized_us": 13.397, "speedup": 1.468},
+    {"entries": 4096, "bits": 5, "pattern": 0, "baseline_us": 39.232, "optimized_us": 15.713, "speedup": 2.497},
+    {"entries": 4096, "bits": 5, "pattern": 1, "baseline_us": 71.65, "optimized_us": 16.136, "speedup": 4.44},
+    {"entries": 4096, "bits": 5, "pattern": 2, "baseline_us": 14.845, "optimized_us": 13.008, "speedup": 1.141},
+    {"entries": 4096, "bits": 5, "pattern": 3, "baseline_us": 19.343, "optimized_us": 14.578, "speedup": 1.327},
+    {"entries": 4096, "bits": 6, "pattern": 0, "baseline_us": 61.976, "optimized_us": 16.549, "speedup": 3.745},
+    {"entries": 4096, "bits": 6, "pattern": 1, "baseline_us": 105.108, "optimized_us": 17.069, "speedup": 6.158},
+    {"entries": 4096, "bits": 6, "pattern": 2, "baseline_us": 15.814, "optimized_us": 13.495, "speedup": 1.172},
+    {"entries": 4096, "bits": 6, "pattern": 3, "baseline_us": 20.272, "optimized_us": 15.43, "speedup": 1.314},
+    {"entries": 4096, "bits": 7, "pattern": 0, "baseline_us": 125.953, "optimized_us": 17.117, "speedup": 7.358},
+    {"entries": 4096, "bits": 7, "pattern": 1, "baseline_us": 145.952, "optimized_us": 17.601, "speedup": 8.292},
+    {"entries": 4096, "bits": 7, "pattern": 2, "baseline_us": 12.349, "optimized_us": 12.011, "speedup": 1.028},
+    {"entries": 4096, "bits": 7, "pattern": 3, "baseline_us": 20.331, "optimized_us": 15.295, "speedup": 1.329},
+    {"entries": 4096, "bits": 8, "pattern": 0, "baseline_us": 15.097, "optimized_us": 14.991, "speedup": 1.007},
+    {"entries": 4096, "bits": 8, "pattern": 1, "baseline_us": 15.349, "optimized_us": 15.099, "speedup": 1.017},
+    {"entries": 4096, "bits": 8, "pattern": 2, "baseline_us": 10.837, "optimized_us": 10.279, "speedup": 1.054},
+    {"entries": 4096, "bits": 8, "pattern": 3, "baseline_us": 14.664, "optimized_us": 14.799, "speedup": 0.991},
+    {"entries": 64, "bits": 1, "pattern": 0, "baseline_us": 0.343, "optimized_us": 0.274, "speedup": 1.251},
+    {"entries": 64, "bits": 1, "pattern": 1, "baseline_us": 0.313, "optimized_us": 0.244, "speedup": 1.281},
+    {"entries": 64, "bits": 1, "pattern": 2, "baseline_us": 0.226, "optimized_us": 0.233, "speedup": 0.972},
+    {"entries": 64, "bits": 1, "pattern": 3, "baseline_us": 0.307, "optimized_us": 0.249, "speedup": 1.23},
+    {"entries": 64, "bits": 2, "pattern": 0, "baseline_us": 0.401, "optimized_us": 0.349, "speedup": 1.149},
+    {"entries": 64, "bits": 2, "pattern": 1, "baseline_us": 0.401, "optimized_us": 0.338, "speedup": 1.184},
+    {"entries": 64, "bits": 2, "pattern": 2, "baseline_us": 0.291, "optimized_us": 0.27, "speedup": 1.079},
+    {"entries": 64, "bits": 2, "pattern": 3, "baseline_us": 0.379, "optimized_us": 0.316, "speedup": 1.198},
+    {"entries": 64, "bits": 3, "pattern": 0, "baseline_us": 0.294, "optimized_us": 0.295, "speedup": 0.996},
+    {"entries": 64, "bits": 3, "pattern": 1, "baseline_us": 0.287, "optimized_us": 0.292, "speedup": 0.983},
+    {"entries": 64, "bits": 3, "pattern": 2, "baseline_us": 0.263, "optimized_us": 0.262, "speedup": 1.003},
+    {"entries": 64, "bits": 3, "pattern": 3, "baseline_us": 0.28, "optimized_us": 0.312, "speedup": 0.898}
+  ]
+}
