@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "64ae93d8929ac48889e50bf72ddb5bb6af49da04",
+  "profile": "fast (opt-level=3, no LTO)",
+  "target": "x86_64-unknown-linux-gnu",
+  "cpu": "AMD EPYC 9V74",
+  "iterations_per_sample": 2000,
+  "samples": 9,
+  "aggregation": "median, alternating before/after order",
+  "scope": "Padded::new only, not complete meshing or game FPS",
+  "limitations": [
+    "Synthetic chunk/light fixtures; no Minecraft resources required",
+    "Other build jobs ran concurrently",
+    "Not measured on Intel HD 2500 or the user i5"
+  ],
+  "cases": [
+    {
+      "case": "uniform",
+      "before_ns": 39006,
+      "after_ns": 15830,
+      "speedup": 2.4641
+    },
+    {
+      "case": "mixed_local",
+      "before_ns": 55331,
+      "after_ns": 35835,
+      "speedup": 1.544
+    },
+    {
+      "case": "mixed_global",
+      "before_ns": 54187,
+      "after_ns": 35300,
+      "speedup": 1.535
+    }
+  ]
+}

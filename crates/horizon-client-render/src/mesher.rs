@@ -269,6 +269,8 @@ fn visibility(pad: &Padded, info: &[Info]) -> u64 {
     result
 }
 #[cfg(test)]
+mod padding_tests;
+#[cfg(test)]
 mod particle_tests;
 #[cfg(test)]
 mod visibility_tests;
@@ -650,20 +652,37 @@ impl Padded {
         for y in -B..16 + B {
             let wy = base_y + y;
             for z in -B..16 + B {
-                for x in -B..16 + B {
-                    let chunk = region[((z + 16) >> 4) as usize][((x + 16) >> 4) as usize];
-                    let i = pi(x, y, z);
-                    if let Some(c) = chunk {
-                        blocks[i] =
-                            if (0..16).contains(&x) && (0..16).contains(&y) && (0..16).contains(&z)
-                            {
-                                own[(y << 8 | z << 4 | x) as usize]
-                            } else {
-                                c.get(x & 15, wy, z & 15)
-                            };
-                        light[i] = c.light(x & 15, wy, z & 15);
+                // A row crosses at most three chunks. Resolve the column and
+                // section once per span, and copy light directly: the old
+                // per-cell Chunk::light repeated the same bounds/index work.
+                for (cx, x, len) in [(0, -B, B as usize), (1, 0, 16), (2, 16, B as usize)] {
+                    let row = pi(x, y, z);
+                    let range = row..row + len;
+                    let Some(chunk) = region[((z + 16) >> 4) as usize][cx] else {
+                        light[range].fill(0xF0);
+                        continue;
+                    };
+                    let Some(si) = chunk.section_index(wy) else {
+                        light[range].fill(if wy < chunk.min_y() { 0 } else { 0xF0 });
+                        continue;
+                    };
+                    let section = &chunk.sections[si];
+                    let start = crate::chunk::index(x, wy, z);
+                    if cx == 1 && (0..16).contains(&y) && (0..16).contains(&z) {
+                        let start = (y << 8 | z << 4) as usize;
+                        blocks[range.clone()].copy_from_slice(&own[start..start + len]);
+                    } else if section.blocks.bits() == 0 {
+                        blocks[range.clone()].fill(section.get(0));
                     } else {
-                        light[i] = 0xF0;
+                        for (i, cell) in blocks[range.clone()].iter_mut().enumerate() {
+                            *cell = section.get(start + i);
+                        }
+                    }
+                    match &section.light {
+                        crate::chunk::Light::Uniform(value) => light[range].fill(*value),
+                        crate::chunk::Light::Full(values) => {
+                            light[range].copy_from_slice(&values[start..start + len]);
+                        }
                     }
                 }
             }
