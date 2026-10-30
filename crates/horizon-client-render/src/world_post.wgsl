@@ -67,6 +67,7 @@ struct Taa {
 @group(0) @binding(2) var history: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
 @group(0) @binding(4) var<uniform> taa: Taa;
+@group(0) @binding(5) var depth_sampler: sampler;
 
 // Catmull-Rom over the history in 5 bilinear taps: sharper than one under motion.
 fn sample_history(uv: vec2<f32>) -> vec3<f32> {
@@ -113,7 +114,7 @@ fn sample_history(uv: vec2<f32>) -> vec3<f32> {
             let c = textureLoad(world, q, 0).rgb;
             lo = min(lo, c);
             hi = max(hi, c);
-            near = max(near, textureLoad(depth, q, 0));
+            near = max(near, textureSampleLevel(depth, depth_sampler, (vec2<f32>(q) + 0.5) / size, 0));
         }
     }
     let ndc = vec2(in.uv.x * 2.0 - 1.0, 1.0 - in.uv.y * 2.0);

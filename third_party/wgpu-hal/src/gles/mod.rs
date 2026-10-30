@@ -92,6 +92,7 @@ mod wgl;
 mod adapter;
 mod command;
 mod conv;
+mod depth_sampling;
 mod device;
 mod fence;
 mod queue;
