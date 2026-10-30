@@ -75,11 +75,16 @@ cargo test -p horizon-core --lib --release --locked benchmark_bulk_packing -- --
 ```
 
 The core suite passes 119 tests, with three microbenchmarks ignored by default.
-The crate's Clippy, formatting and doc tests pass. The wider `pr_ready --quick`
-run initially found two environment limitations: the workspace Clippy build
-needed Linux ALSA headers, and one of 480 Python tests could not read its own
-process RSS through `ps`. The latter also fails in an untouched checkout of
-`0a341cc353` (`test_perf_bench.py`: 14 pass, the same one errors).
+The crate's Clippy, formatting and doc tests pass. After providing pkg-config
+and ALSA/udev development files through a temporary local sysroot, both full
+workspace all-target Clippy and the no-default-features server Clippy pass
+with warnings denied, as run by `pr_ready --quick`.
+
+The overall self-check remains nonzero: one of 480 Python tests cannot read
+its own process RSS through `ps` in this environment. The other 479 pass.
+The same test also fails in an untouched checkout of `0a341cc353`
+(`test_perf_bench.py`: 14 pass, the same one errors). No test was disabled
+or changed to hide that limitation.
 
 Vanilla differential harnesses and an in-game FPS comparison require the
 player's prepared Minecraft files, absent in this environment. They have not
