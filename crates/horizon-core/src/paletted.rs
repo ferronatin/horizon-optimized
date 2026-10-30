@@ -399,6 +399,31 @@ impl PalettedContainer {
                     write(&mut words, storage_bits, i, id);
                 }
             }
+        } else if matches!(self.palette, Palette::List(_)) && matches!(palette, Palette::List(_)) {
+            // List palettes have at most 256 ids. Resolve each old id only on
+            // its first occurrence, preserving vanilla's first-seen order,
+            // instead of scanning the new palette again every time it recurs.
+            // Cache ids, not values: registry values can use every u32 bit.
+            let mut remapped = [u16::MAX; 256];
+            let (mut last_old, mut new_id) = (u32::MAX, 0);
+            for i in 0..entries {
+                let old = read(&self.words, self.bits, i);
+                if old != last_old {
+                    last_old = old;
+                    let mapped = &mut remapped[old as usize];
+                    if *mapped == u16::MAX {
+                        let value = match &self.palette {
+                            Palette::List(list) => list[old as usize],
+                            _ => old,
+                        };
+                        *mapped = id_in(&mut palette, value) as u16;
+                    }
+                    new_id = u32::from(*mapped);
+                }
+                if storage_bits > 0 {
+                    write(&mut words, storage_bits, i, new_id);
+                }
+            }
         } else {
             let (mut last_old, mut new_id) = (u32::MAX, 0);
             for i in 0..entries {
@@ -704,6 +729,196 @@ mod tests {
     use super::*;
     const BLOCKS: Strategy = Strategy::blocks(16);
     const BIOMES: Strategy = Strategy::biomes(7);
+
+    // Frozen pre-stage-2 implementation for byte-for-byte and timing comparisons.
+    impl PalettedContainer {
+        fn baseline_resize(&mut self, bits: u8, last: u32) -> usize {
+            let strategy = self.strategy;
+            let config = strategy.config(bits);
+            let storage_bits = strategy.storage_bits(config);
+            let entries = strategy.entries();
+            let mut palette = match config {
+                Config::Single => Palette::Single(last),
+                Config::List(_) => Palette::List(Vec::new()),
+                Config::Global => Palette::Global,
+            };
+            let mut words = vec![0u64; storage_len(storage_bits, entries)];
+            let id_in = |palette: &mut Palette, value: u32| -> u32 {
+                match palette {
+                    Palette::Single(_) => 0,
+                    Palette::List(list) => match list.iter().position(|&v| v == value) {
+                        Some(id) => id as u32,
+                        None => {
+                            list.push(value);
+                            list.len() as u32 - 1
+                        }
+                    },
+                    Palette::Global => value,
+                }
+            };
+            if let Palette::Single(only) = self.palette {
+                let id = id_in(&mut palette, only);
+                if storage_bits > 0 && id != 0 {
+                    for i in 0..entries {
+                        write(&mut words, storage_bits, i, id);
+                    }
+                }
+            } else {
+                let (mut last_old, mut new_id) = (u32::MAX, 0);
+                for i in 0..entries {
+                    let old = read(&self.words, self.bits, i);
+                    if old != last_old {
+                        last_old = old;
+                        let value = match &self.palette {
+                            Palette::List(list) => list[old as usize],
+                            _ => old,
+                        };
+                        new_id = id_in(&mut palette, value);
+                    }
+                    if storage_bits > 0 {
+                        write(&mut words, storage_bits, i, new_id);
+                    }
+                }
+            }
+            let id = id_in(&mut palette, last);
+            self.palette = palette;
+            self.bits = storage_bits;
+            self.words = words;
+            id as usize
+        }
+    }
+
+    fn resize_case(
+        strategy: Strategy,
+        bits: u8,
+        pattern: usize,
+        duplicates: bool,
+    ) -> PalettedContainer {
+        let count = 1usize << bits;
+        let palette = (0..count)
+            .map(|i| {
+                let i = if duplicates { i % 3 } else { i };
+                let stride = if strategy == BLOCKS { 37 } else { 7 };
+                (i as u32).wrapping_mul(stride).wrapping_add(3)
+            })
+            .collect();
+        let mut state = 0x1234_5678_9ABC_DEF1;
+        let words = pack_words(
+            bits,
+            strategy.entries(),
+            (0..strategy.entries()).map(|i| match pattern {
+                0 => (count - 1 - i % count) as u32,
+                1 => (rng(&mut state) % count as u64) as u32,
+                2 => ((i / 128) % count) as u32,
+                _ => [count - 1, 0, count / 2][i % 3] as u32,
+            }),
+        );
+        PalettedContainer::from_wire(strategy, bits, palette, words).unwrap()
+    }
+
+    #[test]
+    fn resize_remap_preserves_palette_order_words_and_returned_id() {
+        fn compare(source: &PalettedContainer, bits: u8, last: u32) {
+            let mut expected = source.clone();
+            let mut actual = source.clone();
+            assert_eq!(
+                actual.resize(bits, last),
+                expected.baseline_resize(bits, last)
+            );
+            assert_eq!(actual.strategy, expected.strategy);
+            assert_eq!(actual.bits, expected.bits);
+            assert_eq!(actual.palette, expected.palette);
+            assert_eq!(actual.words, expected.words);
+            assert_eq!(actual.pack(), expected.pack());
+        }
+        for strategy in [BLOCKS, BIOMES] {
+            for value in [0, 3, u32::MAX] {
+                compare(
+                    &PalettedContainer::new(strategy, value),
+                    1,
+                    value.wrapping_add(1),
+                );
+            }
+            let widths = if strategy == BLOCKS { 4..=8 } else { 1..=3 };
+            for bits in widths {
+                for pattern in 0..4 {
+                    for duplicates in [false, true] {
+                        let mut source = resize_case(strategy, bits, pattern, duplicates);
+                        // Legal nonzero input padding must be ignored on resize.
+                        let per = 64 / usize::from(bits);
+                        for (word, start) in source
+                            .words
+                            .iter_mut()
+                            .zip((0..strategy.entries()).step_by(per))
+                        {
+                            let used = per.min(strategy.entries() - start) * usize::from(bits);
+                            if used < 64 {
+                                *word |= u64::MAX << used;
+                            }
+                        }
+                        for last in [3, 100_003, u32::MAX] {
+                            compare(&source, bits + 1, last);
+                        }
+                        // Values are full u32s even though the cached palette ids
+                        // fit in u16; the sentinel must never be a value sentinel.
+                        if let Palette::List(list) = &mut source.palette {
+                            list[0] = u32::MAX;
+                        }
+                        compare(&source, bits + 1, 100_003);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "microbenchmark; run with --ignored --nocapture"]
+    fn benchmark_palette_resize() {
+        use std::{hint::black_box, time::Instant};
+        for (strategy, widths) in [(BLOCKS, 4..=8), (BIOMES, 1..=3)] {
+            for bits in widths {
+                for pattern in [0, 1, 2, 3] {
+                    let source = resize_case(strategy, bits, pattern, false);
+                    let last = if strategy == BLOCKS { 60_003 } else { 127 };
+                    let mut a = source.clone();
+                    let mut b = source.clone();
+                    assert_eq!(a.resize(bits + 1, last), b.baseline_resize(bits + 1, last));
+                    assert_eq!(a.palette, b.palette);
+                    assert_eq!(a.words, b.words);
+                    let mut times = [Vec::new(), Vec::new()];
+                    for round in 0..25 {
+                        for fast in [round % 2 == 0, round % 2 != 0] {
+                            let started = Instant::now();
+                            for _ in 0..1000 {
+                                // Include the same clone/allocation/drop costs
+                                // in both paths; only resize differs.
+                                let mut c = black_box(&source).clone();
+                                let id = if fast {
+                                    c.resize(black_box(bits + 1), black_box(last))
+                                } else {
+                                    c.baseline_resize(black_box(bits + 1), black_box(last))
+                                };
+                                black_box((c, id));
+                            }
+                            if round != 0 {
+                                times[usize::from(fast)]
+                                    .push(started.elapsed().as_secs_f64() * 1e6 / 1000.0);
+                            }
+                        }
+                    }
+                    for samples in &mut times {
+                        samples.sort_by(f64::total_cmp);
+                    }
+                    let (before, after) = (times[0][12], times[1][12]);
+                    println!(
+                        "resize/{}/{bits}/{pattern}: baseline {before:.3} us, optimized {after:.3} us, {:.3}x",
+                        strategy.entries(),
+                        before / after
+                    );
+                }
+            }
+        }
+    }
 
     // The original per-cell writer is also an independent reference for the
     // word layout, including padding and the partial final word.
