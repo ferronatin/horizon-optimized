@@ -76,7 +76,7 @@ def require_windows_x64(path):
 def package(args):
     verify_archive(args.game, args.game_sums, args.game_signature, 'nightly', 'horizon-windows-x64.zip')
     verify_archive(args.launcher, args.launcher_sums, args.launcher_signature, LAUNCHER_TAG, 'horizon-launcher-windows-x64.zip')
-    for binary in ['horizon-client.exe', 'horizon-ctl.exe']:
+    for binary in ['horizon-client.exe', 'horizon-ctl.exe', 'horizon-light-profile.exe']:
         require_windows_x64(args.engine_dir / binary)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -98,6 +98,7 @@ def package(args):
     launcher = work / 'official-launcher' / 'horizon-launcher.exe'
     require_windows_x64(launcher)
     shutil.copy2(launcher, runtime / launcher.name)
+    shutil.copy2(args.engine_dir / 'horizon-light-profile.exe', runtime / 'horizon-light-profile.exe')
     settings = work / 'settings.json'
     settings.write_text(json.dumps({'selected': TAG, 'install_new_versions': False, 'prune_old_versions': False}, indent=2))
     for name in ['LICENSE', 'THIRD_PARTY_NOTICES.md']:
@@ -116,8 +117,10 @@ def package(args):
     }
     (payload / 'BUILD-INFO.json').write_text(json.dumps(manifest, indent=2) + '\n')
     scripts = ROOT / 'packaging/windows-optimized'
+    full = payload / 'Horizon-Completo.exe'
+    subprocess.run([str(args.makensis), '-V2', f'-DPROJECT_DIR={ROOT}', f'-DOUTPUT_FILE={full}', str(scripts / 'launcher.nsi')], check=True)
     bootstrap = payload / 'Horizon-Optimized.exe'
-    subprocess.run([str(args.makensis), '-V2', f'-DPROJECT_DIR={ROOT}', f'-DOUTPUT_FILE={bootstrap}', str(scripts / 'launcher.nsi')], check=True)
+    subprocess.run([str(args.makensis), '-V2', f'-DPROJECT_DIR={ROOT}', f'-DOUTPUT_FILE={bootstrap}', str(scripts / 'light-launcher.nsi')], check=True)
     installer = out / 'Horizon-Optimized-Setup.exe'
     subprocess.run([str(args.makensis), '-V2', f'-DPROJECT_DIR={ROOT}', f'-DOUTPUT_FILE={installer}',
                     f'-DPAYLOAD_DIR={payload}', f'-DDEFAULT_SETTINGS={settings}', str(scripts / 'setup.nsi')], check=True)

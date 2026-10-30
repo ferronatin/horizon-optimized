@@ -2,8 +2,18 @@ HORIZON OPTIMIZED — WINDOWS X64
 
 1. Execute Horizon-Optimized-Setup.exe.
 2. Escolha uma subpasta no disco que tem espaço, por exemplo D:\Horizon Optimized.
-3. Abra o atalho Horizon Optimized criado na área de trabalho.
-4. Entre com sua conta Microsoft que possui Minecraft Java e clique em Play.
+3. Abra o atalho Horizon Optimized criado na área de trabalho: agora ele abre uma
+   janela nativa leve, sem inicializar a interface 3D do launcher.
+4. Clique em Entrar com Microsoft e siga o código mostrado na janela de texto.
+   Depois de Signed in, feche a janela de texto e clique em Jogar.
+
+MODO INTEL HD / PC ANTIGO
+O instalador aplica um perfil de 960x540, 6 chunks, dois workers, OpenGL, menu a
+30 FPS e sem blur. O limite durante o jogo é 60 FPS. Isso reduz qualidade e
+distância iniciais; não remove sistemas do jogo. A janela leve tem botões para
+reaplicar esse perfil, restaurar o backup original ou abrir o launcher completo
+para administrar contas, mods, instâncias e outras funções. Suas teclas, contas
+e mundos são preservados. O backup fica em data\before-light-profile.
 
 O launcher oficial está incluído sem modificações, com sua autenticação original.
 O jogo incluído foi compilado do fork ferronatin/horizon-optimized com as duas

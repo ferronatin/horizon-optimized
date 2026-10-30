@@ -1,5 +1,22 @@
 # Windows installer with a disk selector
 
+The legacy edition now opens native NSIS controls, not GPUI. Sign-in and play
+invoke the unmodified official launcher's CLI in a visible console. The full
+launcher remains available through a button and `Horizon-Completo.exe`.
+The Rust profile helper merges only performance keys, backs up originals once,
+and restores exact file bytes/missing files. Its unit tests also verify worlds
+are untouched. Build it separately with its Cargo manifest under `profile-tool/`
+for Windows x64 and place `horizon-light-profile.exe` beside the engine/CLI.
+
+Default legacy settings are explicit/reversible: OpenGL, 960x540, 6 render chunks,
+5 simulation chunks, 2 workers, no blur/shaders/HDR, static panorama and 60 FPS
+in play. The loading/title loop now yields using event-loop deadlines rather
+than continuously polling, caps foreground menus at 60 by default, and accepts
+`HORIZON_MENU_FPS=30` from the light front door. Offscreen scripted rendering
+keeps the old unrestricted path. Other keyboard, networking and game rules stay.
+The old game engine source commit mentioned below identifies the original two
+palette optimizations; current build provenance is recorded in BUILD-INFO.json.
+
 `Horizon-Optimized-Setup.exe` is a per-user NSIS installer with a Portuguese
 directory page. It bundles the optimized x64 client/CLI from this fork and the
 unmodified, Microsoft-configured official Horizon launcher. It never copies

@@ -76,6 +76,10 @@ Section "Horizon Optimized"
   SetOutPath "$INSTDIR\data\launcher"
   File /oname=settings.json "${DEFAULT_SETTINGS}"
   settings_done:
+  ExecWait '"$INSTDIR\runtime\horizon-light-profile.exe" apply "$INSTDIR"' $0
+  ${If} $0 != 0
+    Goto failed
+  ${EndIf}
   FileOpen $0 "$INSTDIR\data\launcher\versions\v0.2.98\.installed" w
   IfErrors failed
   FileClose $0
@@ -127,6 +131,7 @@ Section "Uninstall"
   ${EndIf}
   RMDir /r "$INSTDIR\runtime"
   Delete "$INSTDIR\Horizon-Optimized.exe"
+  Delete "$INSTDIR\Horizon-Completo.exe"
   Delete "$INSTDIR\Desinstalar.exe"
   ; Worlds, settings, accounts and game data stay for the user to keep or remove.
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
