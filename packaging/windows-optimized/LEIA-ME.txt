@@ -1,0 +1,36 @@
+HORIZON OPTIMIZED — WINDOWS X64
+
+1. Execute Horizon-Optimized-Setup.exe.
+2. Escolha uma subpasta no disco que tem espaço, por exemplo D:\Horizon Optimized.
+3. Abra o atalho Horizon Optimized criado na área de trabalho.
+4. Entre com sua conta Microsoft que possui Minecraft Java e clique em Play.
+
+O launcher oficial está incluído sem modificações, com sua autenticação original.
+O jogo incluído foi compilado do fork ferronatin/horizon-optimized com as duas
+otimizações de paletas. BUILD-INFO.json identifica as versões e os hashes.
+
+PASTAS NO DISCO ESCOLHIDO
+  data\launcher — versões, downloads do Minecraft, Java e cache do launcher
+  data\game     — mundos, instâncias, opções, mods e screenshots
+  data\temp     — arquivos temporários usados ao abrir pelo atalho instalado
+  data\toolchain — ferramentas de compilação usadas pelos mods nativos
+
+As duas variáveis HORIZON_LAUNCHER_HOME e HORIZON_HOME são salvas para este usuário,
+para que outros atalhos do Horizon também reconheçam a pasta escolhida. TEMP,
+TMP, CARGO_HOME e RUSTUP_HOME mudam apenas para o Horizon aberto pelo atalho.
+O Windows continua guardando suas pequenas credenciais no cofre do sistema.
+
+Seus mundos antigos não são movidos automaticamente. As pastas antigas ficam
+intactas. Para reinstalar, escolha a mesma pasta; settings.json é preservado.
+A desinstalação remove os programas e atalhos, mas preserva a pasta data.
+
+Atualizações automáticas ficam desativadas nesta edição para preservar o jogo
+otimizado. Uma versão oficial escolhida manualmente no launcher é outra versão.
+Para mudar de disco depois, reinstale escolhendo a nova pasta e copie seus mundos.
+
+Não contém arquivos, texturas ou código do Minecraft. O preparo usa sua cópia
+legítima do jogo. Não é um produto oficial da Mojang ou Microsoft.
+
+Projeto original: https://github.com/horizon-rust/horizon
+Fork: https://github.com/ferronatin/horizon-optimized
+Licenças: LICENSE e THIRD_PARTY_NOTICES.md.
