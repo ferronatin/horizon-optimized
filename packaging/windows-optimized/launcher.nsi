@@ -30,6 +30,8 @@ Section
   System::Call 'kernel32::SetEnvironmentVariableW(w "RUSTUP_HOME", w "$EXEDIR\data\toolchain\rustup") i .r0'
   ; Preserve the packaged edition instead of silently replacing it with upstream.
   System::Call 'kernel32::SetEnvironmentVariableW(w "HORIZON_LAUNCHER_NO_SELF_UPDATE", w "1") i .r0'
+  System::Call 'kernel32::SetEnvironmentVariableW(w "HORIZON_LAUNCHER_MOTION", w "off") i .r0'
+  System::Call 'kernel32::SetEnvironmentVariableW(w "HORIZON_MENU_FPS", w "30") i .r0'
   ${GetParameters} $R1
   ClearErrors
   Exec '"$EXEDIR\runtime\horizon-launcher.exe" $R1'
